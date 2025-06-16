@@ -26,6 +26,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.command.TabCompleter;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,7 +34,7 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
-public class SimpleCrates extends JavaPlugin implements Listener {
+public class SimpleCrates extends JavaPlugin implements Listener, TabCompleter {
 
     private final Map<String, List<ItemStack>> crateRewards = new HashMap<>();
     private final Map<String, Map<Integer, Double>> crateChances = new HashMap<>();
@@ -45,6 +46,8 @@ public class SimpleCrates extends JavaPlugin implements Listener {
 
     private FileConfiguration cratesConfig;
     private File cratesFile;
+    private FileConfiguration messagesConfig;
+    private File messagesFile;
 
     private NamespacedKey crateKey;
     private NamespacedKey crateTypeKey;
@@ -54,12 +57,14 @@ public class SimpleCrates extends JavaPlugin implements Listener {
     public void onEnable() {
         saveDefaultConfig();
         loadCratesConfig();
+        loadMessagesConfig();
 
         crateKey = new NamespacedKey(this, "is_crate");
         crateTypeKey = new NamespacedKey(this, "crate_type");
         keyTypeKey = new NamespacedKey(this, "key_type");
 
         getServer().getPluginManager().registerEvents(this, this);
+        getCommand("crate").setTabCompleter(this);
         loadCrates();
         loadPlacedCrates();
     }
@@ -85,6 +90,30 @@ public class SimpleCrates extends JavaPlugin implements Listener {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private void loadMessagesConfig() {
+        messagesFile = new File(getDataFolder(), "messages.yml");
+        if (!messagesFile.exists()) {
+            messagesFile.getParentFile().mkdirs();
+            saveResource("messages.yml", false);
+        }
+        messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
+    }
+
+    private String getMessage(String path) {
+        String message = messagesConfig.getString(path, path);
+        String prefix = messagesConfig.getString("prefix", "");
+        return ChatColor.translateAlternateColorCodes('&', prefix + message);
+    }
+
+    private String getMessage(String path, boolean noPrefix) {
+        String message = messagesConfig.getString(path, path);
+        if (noPrefix) {
+            return ChatColor.translateAlternateColorCodes('&', message);
+        }
+        String prefix = messagesConfig.getString("prefix", "");
+        return ChatColor.translateAlternateColorCodes('&', prefix + message);
     }
 
     private void loadCrates() {
@@ -200,22 +229,26 @@ public class SimpleCrates extends JavaPlugin implements Listener {
         if (!command.getName().equalsIgnoreCase("crate")) return false;
 
         if (args.length == 0) {
-            sender.sendMessage(ChatColor.RED + "Usage: /crate <create|give|list|delete|reload|preview>");
+            sender.sendMessage(getMessage("commands.unknown-command"));
             return true;
         }
 
         switch (args[0].toLowerCase()) {
+            case "help":
+                showHelp(sender);
+                break;
+
             case "create":
                 if (!(sender instanceof Player)) {
-                    sender.sendMessage(ChatColor.RED + "Only players can use this command!");
+                    sender.sendMessage(getMessage("player-only"));
                     return true;
                 }
                 if (args.length < 2) {
-                    sender.sendMessage(ChatColor.RED + "Usage: /crate create <name>");
+                    sender.sendMessage(getMessage("commands.create.usage"));
                     return true;
                 }
                 if (!sender.hasPermission("simplecrates.create")) {
-                    sender.sendMessage(ChatColor.RED + "You don't have permission to create crates!");
+                    sender.sendMessage(getMessage("commands.create.no-permission"));
                     return true;
                 }
                 createCrateGUI((Player) sender, args[1]);
@@ -223,19 +256,35 @@ public class SimpleCrates extends JavaPlugin implements Listener {
 
             case "give":
                 if (args.length < 3) {
-                    sender.sendMessage(ChatColor.RED + "Usage: /crate give <player> <crate> [amount]");
+                    sender.sendMessage(getMessage("commands.give.usage"));
                     return true;
                 }
                 if (!sender.hasPermission("simplecrates.give")) {
-                    sender.sendMessage(ChatColor.RED + "You don't have permission to give crate keys!");
+                    sender.sendMessage(getMessage("commands.give.no-permission"));
                     return true;
                 }
                 giveKey(sender, args);
                 break;
 
+            case "getcrate":
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage(getMessage("player-only"));
+                    return true;
+                }
+                if (args.length < 2) {
+                    sender.sendMessage(getMessage("commands.getcrate.usage"));
+                    return true;
+                }
+                if (!sender.hasPermission("simplecrates.getcrate")) {
+                    sender.sendMessage(getMessage("commands.getcrate.no-permission"));
+                    return true;
+                }
+                getCrate((Player) sender, args);
+                break;
+
             case "list":
                 if (!sender.hasPermission("simplecrates.list")) {
-                    sender.sendMessage(ChatColor.RED + "You don't have permission to list crates!");
+                    sender.sendMessage(getMessage("commands.list.no-permission"));
                     return true;
                 }
                 listCrates(sender);
@@ -243,11 +292,11 @@ public class SimpleCrates extends JavaPlugin implements Listener {
 
             case "delete":
                 if (args.length < 2) {
-                    sender.sendMessage(ChatColor.RED + "Usage: /crate delete <name>");
+                    sender.sendMessage(getMessage("commands.delete.usage"));
                     return true;
                 }
                 if (!sender.hasPermission("simplecrates.delete")) {
-                    sender.sendMessage(ChatColor.RED + "You don't have permission to delete crates!");
+                    sender.sendMessage(getMessage("commands.delete.no-permission"));
                     return true;
                 }
                 deleteCrate(sender, args[1]);
@@ -255,43 +304,44 @@ public class SimpleCrates extends JavaPlugin implements Listener {
 
             case "reload":
                 if (!sender.hasPermission("simplecrates.reload")) {
-                    sender.sendMessage(ChatColor.RED + "You don't have permission to reload the config!");
+                    sender.sendMessage(getMessage("commands.reload.no-permission"));
                     return true;
                 }
                 reloadConfigs();
-                sender.sendMessage(ChatColor.GREEN + "Configuration reloaded!");
+                sender.sendMessage(getMessage("commands.reload.success"));
                 break;
 
             case "preview":
                 if (!(sender instanceof Player)) {
-                    sender.sendMessage(ChatColor.RED + "Only players can use this command!");
+                    sender.sendMessage(getMessage("player-only"));
                     return true;
                 }
                 if (args.length < 2) {
-                    sender.sendMessage(ChatColor.RED + "Usage: /crate preview <name>");
+                    sender.sendMessage(getMessage("commands.preview.usage"));
                     return true;
                 }
                 if (!sender.hasPermission("simplecrates.preview")) {
-                    sender.sendMessage(ChatColor.RED + "You don't have permission to preview crates!");
+                    sender.sendMessage(getMessage("commands.preview.no-permission"));
                     return true;
                 }
                 previewCrate((Player) sender, args[1]);
                 break;
 
             default:
-                sender.sendMessage(ChatColor.RED + "Unknown subcommand!");
+                sender.sendMessage(getMessage("commands.unknown-command"));
         }
 
         return true;
     }
 
     private void createCrateGUI(Player player, String crateName) {
-        Inventory gui = Bukkit.createInventory(null, 54, "Create Crate: " + crateName);
+        String title = getMessage("commands.create.gui-title", true).replace("%crate%", crateName);
+        Inventory gui = Bukkit.createInventory(null, 54, title);
 
         ItemStack confirmButton = new ItemStack(Material.EMERALD_BLOCK);
         ItemMeta confirmMeta = confirmButton.getItemMeta();
-        confirmMeta.setDisplayName(ChatColor.GREEN + "Confirm");
-        confirmMeta.setLore(Arrays.asList(ChatColor.GRAY + "Click to save this crate"));
+        confirmMeta.setDisplayName(getMessage("commands.create.confirm-button", true));
+        confirmMeta.setLore(Arrays.asList(getMessage("commands.create.confirm-lore", true)));
         confirmButton.setItemMeta(confirmMeta);
 
         gui.setItem(49, confirmButton);
@@ -303,13 +353,13 @@ public class SimpleCrates extends JavaPlugin implements Listener {
     private void giveKey(CommandSender sender, String[] args) {
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
-            sender.sendMessage(ChatColor.RED + "Player not found!");
+            sender.sendMessage(getMessage("commands.give.player-not-found"));
             return;
         }
 
         String crateName = args[2];
         if (!crateRewards.containsKey(crateName)) {
-            sender.sendMessage(ChatColor.RED + "Crate not found!");
+            sender.sendMessage(getMessage("commands.give.crate-not-found"));
             return;
         }
 
@@ -318,42 +368,48 @@ public class SimpleCrates extends JavaPlugin implements Listener {
             try {
                 amount = Integer.parseInt(args[3]);
             } catch (NumberFormatException e) {
-                sender.sendMessage(ChatColor.RED + "Invalid amount!");
+                sender.sendMessage(getMessage("commands.give.invalid-amount"));
                 return;
             }
         }
 
         ItemStack key = new ItemStack(Material.TRIPWIRE_HOOK, amount);
         ItemMeta meta = key.getItemMeta();
-        meta.setDisplayName(ChatColor.GOLD + crateName + " Key");
-        meta.setLore(Arrays.asList(
-                ChatColor.GRAY + "Right-click a " + crateName + " crate",
-                ChatColor.GRAY + "to open it!"
-        ));
+        meta.setDisplayName(getMessage("commands.give.key-name", true).replace("%crate%", crateName));
+
+        List<String> lore = new ArrayList<>();
+        for (String line : messagesConfig.getStringList("commands.give.key-lore")) {
+            lore.add(ChatColor.translateAlternateColorCodes('&', line.replace("%crate%", crateName)));
+        }
+        meta.setLore(lore);
+
         meta.getPersistentDataContainer().set(keyTypeKey, PersistentDataType.STRING, crateName);
         key.setItemMeta(meta);
 
         target.getInventory().addItem(key);
-        target.sendMessage(ChatColor.GREEN + "You received " + amount + " " + crateName + " key(s)!");
-        sender.sendMessage(ChatColor.GREEN + "Gave " + amount + " " + crateName + " key(s) to " + target.getName());
+        target.sendMessage(getMessage("commands.give.received").replace("%amount%", String.valueOf(amount)).replace("%crate%", crateName));
+        sender.sendMessage(getMessage("commands.give.given").replace("%amount%", String.valueOf(amount)).replace("%crate%", crateName).replace("%player%", target.getName()));
     }
 
     private void listCrates(CommandSender sender) {
         if (crateRewards.isEmpty()) {
-            sender.sendMessage(ChatColor.YELLOW + "No crates found!");
+            sender.sendMessage(getMessage("commands.list.no-crates"));
             return;
         }
 
-        sender.sendMessage(ChatColor.GOLD + "Available crates:");
+        sender.sendMessage(getMessage("commands.list.header", true));
         for (String crateName : crateRewards.keySet()) {
             int rewardCount = crateRewards.get(crateName).size();
-            sender.sendMessage(ChatColor.YELLOW + "- " + crateName + " (" + rewardCount + " rewards)");
+            String format = getMessage("commands.list.format", true)
+                    .replace("%crate%", crateName)
+                    .replace("%amount%", String.valueOf(rewardCount));
+            sender.sendMessage(format);
         }
     }
 
     private void deleteCrate(CommandSender sender, String crateName) {
         if (!crateRewards.containsKey(crateName)) {
-            sender.sendMessage(ChatColor.RED + "Crate not found!");
+            sender.sendMessage(getMessage("commands.delete.crate-not-found"));
             return;
         }
 
@@ -374,12 +430,12 @@ public class SimpleCrates extends JavaPlugin implements Listener {
         }
 
         savePlacedCrates();
-        sender.sendMessage(ChatColor.GREEN + "Crate " + crateName + " deleted!");
+        sender.sendMessage(getMessage("commands.delete.success").replace("%crate%", crateName));
     }
 
     private void previewCrate(Player player, String crateName) {
         if (!crateRewards.containsKey(crateName)) {
-            player.sendMessage(ChatColor.RED + "Crate not found!");
+            player.sendMessage(getMessage("commands.preview.crate-not-found"));
             return;
         }
 
@@ -387,14 +443,15 @@ public class SimpleCrates extends JavaPlugin implements Listener {
         Map<Integer, Double> chances = crateChances.get(crateName);
 
         int size = Math.min(54, ((rewards.size() / 9) + 1) * 9);
-        Inventory preview = Bukkit.createInventory(null, size, "Preview: " + crateName);
+        String title = getMessage("commands.preview.gui-title", true).replace("%crate%", crateName);
+        Inventory preview = Bukkit.createInventory(null, size, title);
 
         for (int i = 0; i < rewards.size() && i < size; i++) {
             ItemStack display = rewards.get(i).clone();
             ItemMeta meta = display.getItemMeta();
             List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
             lore.add("");
-            lore.add(ChatColor.GOLD + "Chance: " + ChatColor.YELLOW + chances.getOrDefault(i, 10.0) + "%");
+            lore.add(getMessage("commands.preview.chance-lore", true).replace("%chance%", String.valueOf(chances.getOrDefault(i, 10.0))));
             meta.setLore(lore);
             display.setItemMeta(meta);
             preview.setItem(i, display);
@@ -406,6 +463,7 @@ public class SimpleCrates extends JavaPlugin implements Listener {
     private void reloadConfigs() {
         reloadConfig();
         loadCratesConfig();
+        loadMessagesConfig();
         crateRewards.clear();
         crateChances.clear();
         loadCrates();
@@ -416,12 +474,14 @@ public class SimpleCrates extends JavaPlugin implements Listener {
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
 
-        if (event.getView().getTitle().startsWith("Preview:")) {
+        String previewTitle = getMessage("commands.preview.gui-title", true).split("%")[0];
+        if (event.getView().getTitle().startsWith(previewTitle)) {
             event.setCancelled(true);
             return;
         }
 
-        if (!event.getView().getTitle().startsWith("Create Crate:")) return;
+        String createTitle = getMessage("commands.create.gui-title", true).split("%")[0];
+        if (!event.getView().getTitle().startsWith(createTitle)) return;
 
         if (event.getSlot() == 49) {
             event.setCancelled(true);
@@ -437,20 +497,32 @@ public class SimpleCrates extends JavaPlugin implements Listener {
             }
 
             if (rewards.isEmpty()) {
-                player.sendMessage(ChatColor.RED + "You must add at least one reward!");
+                player.sendMessage(getMessage("commands.create.no-rewards"));
                 return;
             }
 
             saveCrate(crateName, rewards);
+            crateCreators.remove(player.getUniqueId());
             player.closeInventory();
-            player.sendMessage(ChatColor.GREEN + "Crate " + crateName + " created with " + rewards.size() + " rewards!");
+            player.sendMessage(getMessage("commands.create.success").replace("%crate%", crateName).replace("%amount%", String.valueOf(rewards.size())));
         }
     }
 
     @EventHandler
-    public void onInventoryClose(InventoryClickEvent event) {
-        if (event.getWhoClicked() instanceof Player) {
-            crateCreators.remove(event.getWhoClicked().getUniqueId());
+    public void onInventoryClose(InventoryCloseEvent event) {
+        if (event.getPlayer() instanceof Player) {
+            Player player = (Player) event.getPlayer();
+
+            String openingTitle = getMessage("crate.opening-title", true).split("%")[0];
+            if (event.getView().getTitle().startsWith(openingTitle)) {
+                if (animatingPlayers.contains(player.getUniqueId())) {
+                    event.getPlayer().sendMessage(getMessage("crate.cannot-close"));
+                    Bukkit.getScheduler().runTask(this, () -> player.openInventory(event.getInventory()));
+                    return;
+                }
+            }
+
+            crateCreators.remove(player.getUniqueId());
         }
     }
 
@@ -490,7 +562,7 @@ public class SimpleCrates extends JavaPlugin implements Listener {
         placedCrates.put(loc, crateType);
         createHologram(loc, crateType);
 
-        event.getPlayer().sendMessage(ChatColor.GREEN + "Placed " + crateType + " crate!");
+        event.getPlayer().sendMessage(getMessage("crate.placed").replace("%crate%", crateType));
     }
 
     @EventHandler
@@ -500,7 +572,7 @@ public class SimpleCrates extends JavaPlugin implements Listener {
 
         if (!event.getPlayer().hasPermission("simplecrates.break")) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(ChatColor.RED + "You can't break crates!");
+            event.getPlayer().sendMessage(getMessage("crate.break-no-permission"));
             return;
         }
 
@@ -509,8 +581,8 @@ public class SimpleCrates extends JavaPlugin implements Listener {
 
         ItemStack crateItem = new ItemStack(Material.CHEST);
         ItemMeta meta = crateItem.getItemMeta();
-        meta.setDisplayName(ChatColor.GOLD + crateType + " Crate");
-        meta.setLore(Arrays.asList(ChatColor.GRAY + "Place this to create a crate"));
+        meta.setDisplayName(getMessage("commands.getcrate.crate-item-name", true).replace("%crate%", crateType));
+        meta.setLore(Arrays.asList(getMessage("commands.getcrate.crate-item-lore", true)));
         meta.getPersistentDataContainer().set(crateKey, PersistentDataType.BYTE, (byte) 1);
         meta.getPersistentDataContainer().set(crateTypeKey, PersistentDataType.STRING, crateType);
         crateItem.setItemMeta(meta);
@@ -533,19 +605,19 @@ public class SimpleCrates extends JavaPlugin implements Listener {
         String crateType = placedCrates.get(loc);
 
         if (animatingPlayers.contains(player.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Please wait for the animation to finish!");
+            player.sendMessage(getMessage("crate.animation-running"));
             return;
         }
 
         Long lastOpen = openCooldowns.get(player.getUniqueId());
         if (lastOpen != null && System.currentTimeMillis() - lastOpen < 3000) {
-            player.sendMessage(ChatColor.RED + "Please wait before opening another crate!");
+            player.sendMessage(getMessage("crate.cooldown"));
             return;
         }
 
         ItemStack keyItem = findKey(player, crateType);
         if (keyItem == null) {
-            player.sendMessage(ChatColor.RED + "You need a " + crateType + " key to open this crate!");
+            player.sendMessage(getMessage("crate.need-key").replace("%crate%", crateType));
             return;
         }
 
@@ -575,7 +647,8 @@ public class SimpleCrates extends JavaPlugin implements Listener {
         List<ItemStack> rewards = crateRewards.get(crateType);
         Map<Integer, Double> chances = crateChances.get(crateType);
 
-        Inventory animationInv = Bukkit.createInventory(null, 27, "Opening " + crateType + "...");
+        String title = getMessage("crate.opening-title", true).replace("%crate%", crateType);
+        Inventory animationInv = Bukkit.createInventory(null, 27, title);
         player.openInventory(animationInv);
 
         ItemStack glass = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
@@ -623,9 +696,17 @@ public class SimpleCrates extends JavaPlugin implements Listener {
                         public void run() {
                             player.closeInventory();
                             player.getInventory().addItem(finalReward.clone());
-                            player.sendMessage(ChatColor.GREEN + "You won: " + ChatColor.YELLOW +
-                                    (finalReward.hasItemMeta() && finalReward.getItemMeta().hasDisplayName() ?
-                                            finalReward.getItemMeta().getDisplayName() : finalReward.getType().toString()));
+
+                            String rewardName = finalReward.hasItemMeta() && finalReward.getItemMeta().hasDisplayName() ?
+                                    finalReward.getItemMeta().getDisplayName() : finalReward.getType().toString();
+
+                            player.sendMessage(getMessage("crate.won").replace("%reward%", rewardName));
+
+                            String broadcast = getMessage("crate.broadcast", true)
+                                    .replace("%player%", player.getName())
+                                    .replace("%crate%", crateType)
+                                    .replace("%reward%", rewardName);
+                            Bukkit.broadcastMessage(broadcast);
 
                             animatingPlayers.remove(player.getUniqueId());
 
@@ -653,5 +734,93 @@ public class SimpleCrates extends JavaPlugin implements Listener {
         }
 
         return rewards.get(ThreadLocalRandom.current().nextInt(rewards.size())).clone();
+    }
+
+    private void showHelp(CommandSender sender) {
+        sender.sendMessage(getMessage("commands.help-header", true));
+        String format = getMessage("commands.help-format", true);
+
+        sender.sendMessage(format.replace("%command%", "/crate help").replace("%description%", getMessage("help.help", true)));
+        sender.sendMessage(format.replace("%command%", "/crate create <n>").replace("%description%", getMessage("help.create", true)));
+        sender.sendMessage(format.replace("%command%", "/crate give <player> <crate> [amount]").replace("%description%", getMessage("help.give", true)));
+        sender.sendMessage(format.replace("%command%", "/crate getcrate <n> [amount]").replace("%description%", getMessage("help.getcrate", true)));
+        sender.sendMessage(format.replace("%command%", "/crate list").replace("%description%", getMessage("help.list", true)));
+        sender.sendMessage(format.replace("%command%", "/crate delete <n>").replace("%description%", getMessage("help.delete", true)));
+        sender.sendMessage(format.replace("%command%", "/crate reload").replace("%description%", getMessage("help.reload", true)));
+        sender.sendMessage(format.replace("%command%", "/crate preview <n>").replace("%description%", getMessage("help.preview", true)));
+    }
+
+    private void getCrate(Player player, String[] args) {
+        String crateName = args[1];
+        if (!crateRewards.containsKey(crateName)) {
+            player.sendMessage(getMessage("commands.getcrate.crate-not-found"));
+            return;
+        }
+
+        int amount = 1;
+        if (args.length > 2) {
+            try {
+                amount = Integer.parseInt(args[2]);
+            } catch (NumberFormatException e) {
+                player.sendMessage(getMessage("commands.getcrate.invalid-amount"));
+                return;
+            }
+        }
+
+        ItemStack crateItem = new ItemStack(Material.CHEST, amount);
+        ItemMeta meta = crateItem.getItemMeta();
+        meta.setDisplayName(getMessage("commands.getcrate.crate-item-name", true).replace("%crate%", crateName));
+        meta.setLore(Arrays.asList(getMessage("commands.getcrate.crate-item-lore", true)));
+        meta.getPersistentDataContainer().set(crateKey, PersistentDataType.BYTE, (byte) 1);
+        meta.getPersistentDataContainer().set(crateTypeKey, PersistentDataType.STRING, crateName);
+        crateItem.setItemMeta(meta);
+
+        player.getInventory().addItem(crateItem);
+        player.sendMessage(getMessage("commands.getcrate.received").replace("%amount%", String.valueOf(amount)).replace("%crate%", crateName));
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (!command.getName().equalsIgnoreCase("crate")) return null;
+
+        List<String> completions = new ArrayList<>();
+
+        if (args.length == 1) {
+            List<String> subcommands = Arrays.asList("help", "create", "give", "getcrate", "list", "delete", "reload", "preview");
+            for (String sub : subcommands) {
+                if (sub.toLowerCase().startsWith(args[0].toLowerCase())) {
+                    completions.add(sub);
+                }
+            }
+        } else if (args.length == 2) {
+            switch (args[0].toLowerCase()) {
+                case "give":
+                    for (Player player : Bukkit.getOnlinePlayers()) {
+                        if (player.getName().toLowerCase().startsWith(args[1].toLowerCase())) {
+                            completions.add(player.getName());
+                        }
+                    }
+                    break;
+                case "delete":
+                case "preview":
+                case "getcrate":
+                    for (String crate : crateRewards.keySet()) {
+                        if (crate.toLowerCase().startsWith(args[1].toLowerCase())) {
+                            completions.add(crate);
+                        }
+                    }
+                    break;
+            }
+        } else if (args.length == 3) {
+            if (args[0].equalsIgnoreCase("give")) {
+                for (String crate : crateRewards.keySet()) {
+                    if (crate.toLowerCase().startsWith(args[2].toLowerCase())) {
+                        completions.add(crate);
+                    }
+                }
+            }
+        }
+
+        return completions;
     }
 }

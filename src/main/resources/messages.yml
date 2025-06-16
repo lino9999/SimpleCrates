@@ -1,0 +1,83 @@
+prefix: "&6[SimpleCrates] &r"
+no-permission: "&cYou don't have permission to do that!"
+player-only: "&cOnly players can use this command!"
+
+commands:
+  unknown-command: "&cUnknown subcommand!"
+  help-header: "&6SimpleCrates Commands:"
+  help-format: "&e%command% &7- %description%"
+
+  create:
+    usage: "&cUsage: /crate create <name>"
+    no-permission: "&cYou don't have permission to create crates!"
+    success: "&aCreate %crate% created with %amount% rewards!"
+    no-rewards: "&cYou must add at least one reward!"
+    confirm-button: "&aConfirm"
+    confirm-lore: "&7Click to save this crate"
+    gui-title: "Create Crate: %crate%"
+
+  give:
+    usage: "&cUsage: /crate give <player> <crate> [amount]"
+    no-permission: "&cYou don't have permission to give crate keys!"
+    player-not-found: "&cPlayer not found!"
+    crate-not-found: "&cCrate not found!"
+    invalid-amount: "&cInvalid amount!"
+    received: "&aYou received %amount% %crate% key(s)!"
+    given: "&aGave %amount% %crate% key(s) to %player%"
+    key-name: "&6%crate% Key"
+    key-lore:
+      - "&7Right-click a %crate% crate"
+      - "&7to open it!"
+
+  getcrate:
+    usage: "&cUsage: /crate getcrate <name> [amount]"
+    no-permission: "&cYou don't have permission to get crates!"
+    crate-not-found: "&cCrate not found!"
+    invalid-amount: "&cInvalid amount!"
+    received: "&aYou received %amount% %crate% crate(s)!"
+    crate-item-name: "&6%crate% Crate"
+    crate-item-lore: "&7Place this to create a crate"
+
+  list:
+    no-permission: "&cYou don't have permission to list crates!"
+    no-crates: "&eNo crates found!"
+    header: "&6Available crates:"
+    format: "&e- %crate% (%amount% rewards)"
+
+  delete:
+    usage: "&cUsage: /crate delete <name>"
+    no-permission: "&cYou don't have permission to delete crates!"
+    crate-not-found: "&cCrate not found!"
+    success: "&aCrate %crate% deleted!"
+
+  reload:
+    no-permission: "&cYou don't have permission to reload the config!"
+    success: "&aConfiguration reloaded!"
+
+  preview:
+    usage: "&cUsage: /crate preview <name>"
+    no-permission: "&cYou don't have permission to preview crates!"
+    crate-not-found: "&cCrate not found!"
+    gui-title: "Preview: %crate%"
+    chance-lore: "&6Chance: &e%chance%%"
+
+crate:
+  placed: "&aPlaced %crate% crate!"
+  break-no-permission: "&cYou can't break crates!"
+  need-key: "&cYou need a %crate% key to open this crate!"
+  animation-running: "&cPlease wait for the animation to finish!"
+  cooldown: "&cPlease wait before opening another crate!"
+  opening-title: "Opening %crate%..."
+  won: "&aYou won: &e%reward%"
+  broadcast: "&b%player% &7opened a &6%crate% &7crate and won &e%reward%&7!"
+  cannot-close: "&cYou cannot close this while the crate is opening!"
+
+help:
+  help: "Shows this help menu"
+  create: "Create a new crate type"
+  give: "Give crate keys to a player"
+  getcrate: "Get placeable crate blocks"
+  list: "List all available crates"
+  delete: "Delete an existing crate"
+  reload: "Reload the configuration"
+  preview: "Preview crate rewards"
