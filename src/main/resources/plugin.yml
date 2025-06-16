@@ -1,0 +1,58 @@
+name: SimpleCrates
+version: '1.0'
+main: com.Lino.simpleCrates.SimpleCrates
+api-version: '1.21'
+author: Lino
+description: A simple crate plugin with custom rewards and animations
+
+commands:
+  crate:
+    description: Main crate command
+    usage: /<command> <create|give|list|delete|reload|preview>
+    aliases: [crates, sc]
+
+permissions:
+  simplecrates.*:
+    description: All SimpleCrates permissions
+    default: op
+    children:
+      simplecrates.create: true
+      simplecrates.give: true
+      simplecrates.list: true
+      simplecrates.delete: true
+      simplecrates.reload: true
+      simplecrates.preview: true
+      simplecrates.break: true
+      simplecrates.use: true
+
+  simplecrates.create:
+    description: Create new crates
+    default: op
+
+  simplecrates.give:
+    description: Give crate keys to players
+    default: op
+
+  simplecrates.list:
+    description: List all available crates
+    default: true
+
+  simplecrates.delete:
+    description: Delete existing crates
+    default: op
+
+  simplecrates.reload:
+    description: Reload configuration
+    default: op
+
+  simplecrates.preview:
+    description: Preview crate contents
+    default: true
+
+  simplecrates.break:
+    description: Break placed crates
+    default: op
+
+  simplecrates.use:
+    description: Use crate keys
+    default: true

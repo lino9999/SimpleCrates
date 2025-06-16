@@ -1,0 +1,35 @@
+# SimpleCrates Configuration
+
+# Hologram format above crates
+# Placeholders: %crate% - crate name
+hologram-format: "&6&l%crate%"
+
+# Example crate configuration
+# You can modify percentages here after creating crates
+crates:
+  example:
+    rewards:
+      0:
+        item:
+          ==: org.bukkit.inventory.ItemStack
+          type: DIAMOND
+          amount: 1
+        chance: 5.0
+      1:
+        item:
+          ==: org.bukkit.inventory.ItemStack
+          type: IRON_INGOT
+          amount: 10
+        chance: 25.0
+      2:
+        item:
+          ==: org.bukkit.inventory.ItemStack
+          type: GOLD_INGOT
+          amount: 5
+        chance: 35.0
+      3:
+        item:
+          ==: org.bukkit.inventory.ItemStack
+          type: EMERALD
+          amount: 3
+        chance: 35.0
